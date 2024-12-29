@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive GNN Demo</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #graph-container { position: relative; width: 500px; height: 500px; border: 1px solid #ccc; margin-bottom: 20px; }
+        .node { position: absolute; width: 30px; height: 30px; border-radius: 50%; background-color: #eee; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .node.selected { background-color: orange; }
+        .node-label { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 0.8em; }
+        .edge { position: absolute; border-bottom: 1px solid #aaa; pointer-events: none; }
+        #output-container { border: 1px solid #ddd; padding: 10px; margin-top: 20px; background-color: #f9f9f9; }
+        #output-container h3 { margin-top: 0; }
+        #output-container p { margin-bottom: 5px; }
+        button { margin-top: 10px; padding: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>Interactive Graph Neural Network Demo</h2>
+    <p>Node states and edge weights are initialised at random. Click on a node to select it, then press "Run GNN Step" to update edge weights connected to the selected node, and simulate message passing, showing the dynamic nature of the edges.</p>
+    <div id="graph-container"></div>
+    <button onclick="runGNNStep()">Run GNN Step</button>
+    <div id="output-container">
+        <h3>Output</h3>
+        <p>Selected Node: <span id="selected-node-output">None</span></p>
+        <p>Node States: <span id="node-states-output"></span></p>
+        <p>Edge Weights: <span id="edge-weights-output"></span></p>
+    </div>
+
+<script>
+    const graphContainer = document.getElementById('graph-container');
+    const selectedNodeOutput = document.getElementById('selected-node-output');
+    const nodeStatesOutput = document.getElementById('node-states-output');
+    const edgeWeightsOutput = document.getElementById('edge-weights-output');
+    
+    let nodes = [];
+    let edges = [];
+    let selectedNode = null;
+    const numNodes = 5;
+
+    function initialiseGraph() {
+        nodes = [];
+        edges = [];
+
+        // Create nodes with random positions and states
+        for (let i = 0; i < numNodes; i++) {
+            nodes.push({
+                id: i,
+                x: Math.random() * 450 + 25,
+                y: Math.random() * 450 + 25,
+                state: Math.random()
+            });
+        }
+
+         // Create edges with random weights
+         edges = [];
+         for(let i=0; i<numNodes; i++){
+            for (let j = i + 1; j < numNodes; j++) {
+                 edges.push({
+                        from: i,
+                        to: j,
+                        weight: Math.random()
+                });
+            }
+         }
+
+
+        drawGraph();
+    }
+
+    function drawGraph() {
+        graphContainer.innerHTML = ''; // Clear existing graph
+    
+        // Draw edges
+        edges.forEach(edge => {
+            const fromNode = nodes[edge.from];
+            const toNode = nodes[edge.to];
+    
+            const edgeElement = document.createElement('div');
+            edgeElement.classList.add('edge');
+            
+             const dx = toNode.x - fromNode.x;
+             const dy = toNode.y - fromNode.y;
+             const length = Math.sqrt(dx * dx + dy * dy);
+             const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+
+            edgeElement.style.width = `${length}px`;
+            edgeElement.style.left = `${fromNode.x}px`;
+            edgeElement.style.top = `${fromNode.y}px`;
+            edgeElement.style.transform = `rotate(${angle}deg)`;
+            edgeElement.style.transformOrigin = '0 0';
+
+            graphContainer.appendChild(edgeElement);
+        });
+
+         // Draw nodes
+        nodes.forEach(node => {
+            const nodeElement = document.createElement('div');
+            nodeElement.classList.add('node');
+            nodeElement.textContent = node.state.toFixed(2);
+            nodeElement.style.left = `${node.x}px`;
+            nodeElement.style.top = `${node.y}px`;
+            nodeElement.onclick = () => selectNode(node.id);
+
+             if (node.id === selectedNode) {
+                nodeElement.classList.add('selected');
+            }
+
+            const labelElement = document.createElement('div');
+            labelElement.classList.add('node-label');
+            labelElement.textContent = node.id;
+            nodeElement.appendChild(labelElement);
+            graphContainer.appendChild(nodeElement);
+        });
+
+        updateOutput();
+
+    }
+
+  function selectNode(nodeId) {
+        selectedNode = nodeId;
+        drawGraph();
+  }
+
+
+    function updateNodeStates() {
+        if (selectedNode === null) return;
+
+        const selectedNodeObj = nodes[selectedNode];
+
+        // Message passing simulation using edge weights to change the state of the nodes
+
+        nodes.forEach(node => {
+             if (node.id !== selectedNode){
+
+                let affectedEdge = edges.find(edge => (edge.from === selectedNode && edge.to === node.id) || (edge.from === node.id && edge.to === selectedNode));
+                
+                if (affectedEdge){
+                    node.state = node.state + (affectedEdge.weight * selectedNodeObj.state) ;
+                    node.state = Math.min(1, Math.max(0, node.state)); // Keep node state between 0 and 1
+                }
+             }
+         });
+
+
+    }
+
+    function updateEdgeWeights() {
+         if (selectedNode === null) return;
+
+        edges.forEach(edge => {
+            if (edge.from === selectedNode || edge.to === selectedNode) {
+                edge.weight = Math.random();
+            }
+         });
+    }
+
+
+    function runGNNStep() {
+        updateEdgeWeights();
+        updateNodeStates();
+        drawGraph();
+    }
+    
+    function updateOutput() {
+        selectedNodeOutput.textContent = selectedNode !== null ? selectedNode : "None";
+
+        const nodeStatesText = nodes.map(node => `Node ${node.id}: ${node.state.toFixed(2)}`).join(', ');
+        nodeStatesOutput.textContent = nodeStatesText;
+        
+         const edgeWeightsText = edges.map(edge => `(${edge.from}-${edge.to}): ${edge.weight.toFixed(2)}`).join(', ');
+        edgeWeightsOutput.textContent = edgeWeightsText;
+   }
+
+     initialiseGraph();
+
+
+</script>
+</body>
+</html>
